@@ -1,38 +1,43 @@
 import { applyMiddleware, createStore } from "redux";
+import axios from "axios";
+import logger from "redux-logger";
+import thunk from "redux-thunk";
+import promise from "redux-promise-middleware"
 
-const reducer = (state=0, action) => {
-	if (action.type === "INC")
-		return state+1;
-	if (action.type === "DEC")
-		return state-1;
-	if (action.type === 'Z')
-		throw new Error("Custom Error");
+const initialState = {
+	fetching: false,
+	fetched: false,
+	users: [],
+	err:null
+}
+
+const reducer = (state={}, action) => {
+	switch (action.type) {
+		case "FETCH_USERS_PENDING": {
+			return {...state, fetching: true}
+			break;
+		}
+		case "FETCH_USERS_REJECTED": {
+			return {...state, fetching: false, err: action.payload}
+			break;
+		}
+		case "FETCH_USERS_FULFILLED": {
+			return {
+				...state, 
+				fetching: false, 
+				fetched: true, 
+				users: action.payload}
+			break;
+		}
+
+	}
 	return state;
 }
 
-const logger = (store) => (next) => (action) => {
-	console.log("action fired:", action);
-	// action.type="DEC"
-	next(action);
-}
+const middleware = applyMiddleware(promise(), thunk, logger());
+const store = createStore(reducer, middleware);
 
-const error = (store) => (next) => (action) => {
-	try {
-		next(action);
-	} catch (e) {
-		console.log("Ran into error. ", e)
-	}
-}
-
-const middleware = applyMiddleware(logger, error);
-
-const store = createStore(reducer, 1, middleware);
-
-store.subscribe(() => {
-	console.log("store changed ", store.getState());
+store.dispatch({
+	type:"FETCH_USERS",
+	payload: axios.get("http://rest.learncode.academy/api/western/users")
 });
-
-store.dispatch({type:"INC"});
-store.dispatch({type:"INC"});
-store.dispatch({type:"DEC"});
-store.dispatch({type:"Z"});
